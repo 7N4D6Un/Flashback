@@ -154,7 +154,14 @@ public class ReplayUI {
         imguiGl3.init("#version 150");
 
         contentScale = imguiGlfw.contentScale;
-        initFonts(languageCode);
+
+        // Detect current game language code; default to en_us if unavailable
+        String currentLanguageCode = "en_us";
+        try {
+            currentLanguageCode = Minecraft.getInstance().getLanguageManager().getSelected();
+        } catch (Exception ignored) {}
+
+        initFonts(currentLanguageCode);
 
         ReplayUIDefaults.applyStyle(ImGui.getStyle());
 
@@ -235,36 +242,46 @@ public class ReplayUI {
 
         short[] glyphRanges = rangesBuilder.buildRanges();
 
-        // Font config for additional fonts
+        // Font config for base and merged fonts
         final ImFontConfig fontConfig = new ImFontConfig();
         fontConfig.setOversampleH(2);
         fontConfig.setOversampleV(2);
 
-        fontConfig.setName("Inter (Medium), 16px");
         fontConfig.setGlyphOffset(0, 0);
-        font = fonts.addFontFromMemoryTTF(loadFont("inter-medium.ttf"), size, fontConfig, glyphRanges);
+
+        // Use a language-appropriate base font. For Chinese, prefer a full CJK font as the primary font,
+        // then merge Latin (Inter) and icon fonts as supplements.
+        int mainSize = size;
+        if (languageCode.startsWith("ja") || languageCode.startsWith("zh") || languageCode.startsWith("ko")) {
+            mainSize = size * 5 / 4;
+        }
+
+        if (languageCode.startsWith("zh")) {
+            fontConfig.setName("Noto Sans CJK (Chinese), " + mainSize + "px");
+            font = fonts.addFontFromMemoryTTF(loadFont("notosanssc-medium.otf"), mainSize, fontConfig, glyphRanges);
+        } else {
+            fontConfig.setName("Inter (Medium), " + mainSize + "px");
+            font = fonts.addFontFromMemoryTTF(loadFont("inter-medium.ttf"), mainSize, fontConfig, glyphRanges);
+        }
 
         // Merge in Japanese/Korean/Chinese/etc. characters if needed
         fontConfig.setMergeMode(true);
 
         fontConfig.setGlyphOffset(0, (int)(5 * getUiScale()));
-        io.getFonts().addFontFromMemoryTTF(loadFont("materialiconsround-regular.otf"), (int)(20 * getUiScale()), fontConfig, buildMaterialIconRanges());
+        icons = io.getFonts().addFontFromMemoryTTF(loadFont("materialiconsround-regular.otf"), (int)(20 * getUiScale()), fontConfig, buildMaterialIconRanges());
         fontConfig.setGlyphOffset(0, 0);
 
         if (languageCode.startsWith("he")) {
             short[] hebrewRanges = new short[]{(short)'\u0590', (short)'\u05FF', (short)'\uFB1D', (short)'\uFB4F', 0};
-            io.getFonts().addFontFromMemoryTTF(loadFont("heebo-medium.ttf"), size, fontConfig, hebrewRanges);
+            io.getFonts().addFontFromMemoryTTF(loadFont("heebo-medium.ttf"), mainSize, fontConfig, hebrewRanges);
         } else if (languageCode.startsWith("ja")) {
-            io.getFonts().addFontFromMemoryTTF(loadFont("notosansjp-medium.ttf"), size*5/4,
-                fontConfig, glyphRanges);
+            io.getFonts().addFontFromMemoryTTF(loadFont("notosansjp-medium.ttf"), mainSize, fontConfig, glyphRanges);
         } else if (languageCode.startsWith("zh")) {
-            io.getFonts().addFontFromMemoryTTF(loadFont("notosanstc-medium.ttf"), size*5/4,
-                fontConfig, glyphRanges);
-            io.getFonts().addFontFromMemoryTTF(loadFont("notosanssc-medium.ttf"), size*5/4,
-                fontConfig, glyphRanges);
+            // Base is SC; merge TC and Latin fallback
+            io.getFonts().addFontFromMemoryTTF(loadFont("notosanstc-medium.otf"), mainSize, fontConfig, glyphRanges);
+            io.getFonts().addFontFromMemoryTTF(loadFont("inter-medium.ttf"), mainSize, fontConfig, glyphRanges);
         } else if (languageCode.startsWith("ko")) {
-            io.getFonts().addFontFromMemoryTTF(loadFont("notosanskr-medium.ttf"), size*5/4,
-                fontConfig, glyphRanges);
+            io.getFonts().addFontFromMemoryTTF(loadFont("notosanskr-medium.ttf"), mainSize, fontConfig, glyphRanges);
         }
         fontConfig.setMergeMode(false);
 
